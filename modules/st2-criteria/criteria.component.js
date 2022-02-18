@@ -109,6 +109,54 @@ export default class Criteria extends React.Component {
     });
   }
 
+  handleChangeSearchCondition(key, condition) {
+    const { data, onChange } = this.props;
+
+    return onChange({
+      ...data,
+      [key]: {
+        ...data[key],
+        condition
+      },
+    });
+  }
+
+  handleChangeSearchPattern(key, pattern) {
+    const { data, onChange } = this.props;
+
+    return onChange({
+      ...data,
+      [key]: {
+        ...data[key],
+        pattern: {
+          ...data[key]['pattern'],
+          ['item.data']: {
+            ...data[key]['pattern']['item.data'],
+            pattern,
+          }
+        }
+      },
+    });
+  }
+
+  handleChangeSearchType(key, type) {
+    const { data, onChange } = this.props;
+
+    return onChange({
+      ...data,
+      [key]: {
+        ...data[key],
+        pattern: {
+          ...data[key]['pattern'],
+          ['item.data']: {
+            ...data[key]['pattern']['item.data'],
+            type,
+          }
+        }
+      },
+    });
+  }
+
   handleRemove(oldKey) {
     const { onChange } = this.props;
 
@@ -167,7 +215,7 @@ export default class Criteria extends React.Component {
                       required: true,
                       enum: searchConditions,
                     }}
-                    onChange={(value) => console.log(key, value)}
+                    onChange={(value) => this.handleChangeSearchCondition(key, value)}
                   />
                   <AutoFormInput
                     name={"Pattern"}
@@ -177,7 +225,7 @@ export default class Criteria extends React.Component {
                     spec={{
                       required: true,
                     }}
-                    onChange={(value) => console.log(key, value)}
+                    onChange={(value) => this.handleChangeSearchPattern(key, value)}
                   />
                   <AutoFormSelect
                     name={"Type"}
@@ -188,7 +236,7 @@ export default class Criteria extends React.Component {
                       required: true,
                       enum: types,
                     }}
-                    onChange={(value) => console.log(key, value)}
+                    onChange={(value) => this.handleChangeSearchType(key, value)}
                   />
                 </>
               ) : (
