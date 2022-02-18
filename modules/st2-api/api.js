@@ -98,7 +98,7 @@ export class API {
             'content-type': 'application/json',
           },
           // You need to define data field for axios to set content-type header
-          data: null,
+          // data: null,
         });
 
         if (res.status !== 201) {
