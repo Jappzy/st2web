@@ -18,7 +18,7 @@ import React, { Component } from 'react';
 import { Provider, connect } from 'react-redux';
 import { PropTypes } from 'prop-types';
 import { HotKeys } from 'react-hotkeys';
-import { pick, mapValues, get } from 'lodash';
+import { mapValues, get } from 'lodash';
 import cx from 'classnames';
 import url from 'url';
 import Menu from '@stackstorm/module-menu';
@@ -33,18 +33,6 @@ import { Route } from '@stackstorm/module-router';
 import globalStore from '@stackstorm/module-store';
 import store from './store';
 import style from './style.css';
-
-function guardKeyHandlers(obj, names) {
-  const filteredObj = pick(obj, names);
-  return mapValues(filteredObj, fn => {
-    return e => {
-      if(e.target === document.body) {
-        e.preventDefault();
-        fn.call(obj);
-      }
-    };
-  });
-}
 
 const POLL_INTERVAL = 5000;
 
@@ -266,7 +254,18 @@ export default class Workflows extends Component {
 
    const promise = (async () => {
      if (existingAction) {
-       await api.request({ method: 'put', path: `/actions/${pack}.${meta.name}` }, meta);
+
+      const newMeta = { ...meta };
+
+       if (meta.parameters) {
+         Object.keys(meta.parameters).forEach(key => {
+           if (meta.parameters[key] === '_name') {
+            delete newMeta.parameters[key][paramKey];
+           }
+         });
+       }
+
+       await api.request({ method: 'put', path: `/actions/${pack}.${meta.name}` }, newMeta);
      }
      else {
        await api.request({ method: 'post', path: '/actions' }, meta);
@@ -275,7 +274,7 @@ export default class Workflows extends Component {
      // don't need to return anything to the store. the handler will change dirty.
      return {};
    })();
-  
+
    store.dispatch({
      type: 'SAVE_WORKFLOW',
      promise,
@@ -286,9 +285,41 @@ export default class Workflows extends Component {
   style = style
 
   keyMap = {
-    undo: [ 'ctrl+z', 'meta+z' ],
+    undo: [ 'command+z', 'ctrl+z', 'meta+z' ],
     redo: [ 'ctrl+shift+z', 'meta+shift+z' ],
+    open: 'command+o',
+    save: 'command+s',
+    copy: 'command+c',
+    cut: 'command+x',
+    paste: 'command+v',
     handleTaskDelete: [ 'del', 'backspace' ],
+  }
+
+  keyHandlers = {
+    undo: () => {
+      store.dispatch({ type: 'FLOW_UNDO' });
+      store.dispatch({ type: 'PUSH_SUCCESS', source: 'icon-save', message: 'SHORTCUT - undo' });
+    },
+    redo: () => {
+      store.dispatch({ type: 'FLOW_REDO' });
+      store.dispatch({ type: 'PUSH_SUCCESS', source: 'icon-save', message: 'SHORTCUT - redo' });
+    },
+    save: (x) => {
+      x.preventDefault();
+      x.stopPropagation();
+      this.save().then(() => {
+        store.dispatch({ type: 'PUSH_SUCCESS', source: 'icon-save', message: 'SHORTCUT - workflow saved' });
+      });
+    },
+    copy: () => {
+      store.dispatch({ type: 'PUSH_WARNING', source: 'icon-save', message: 'Select a task to copy' });
+    },
+    cut: () => {
+      store.dispatch({ type: 'PUSH_WARNING', source: 'icon-save', message: 'Nothing to cut' });
+    },
+    paste: () => {
+      store.dispatch({ type: 'PUSH_WARNING', source: 'icon-save', message: 'Nothing to paste' });
+    }
   }
 
   render() {
@@ -316,8 +347,7 @@ export default class Workflows extends Component {
                   <HotKeys
                     style={{ flex: 1}}
                     keyMap={this.keyMap}
-                    attach={document.body}
-                    handlers={guardKeyHandlers(this.props, [ 'undo', 'redo' ])}
+                    handlers={this.keyHandlers}
                   >
                     <Canvas className="canvas" location={location} match={match} fetchActionscalled={e => this.props.fetchActions()} saveData={e => this.save()} dirtyflag={this.props.dirty}>
                       <Toolbar>

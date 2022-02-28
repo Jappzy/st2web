@@ -273,6 +273,18 @@ const flowReducer = (state = {}, input) => {
       };
     }
 
+    case 'PUSH_WARNING': {
+      const { message, link, source } = input;
+
+      return {
+        ...state,
+        notifications: [
+          ...notifications.filter(n => !source || n.source !== source),
+          { type: 'warning', message, source, link, id: uniqueId() },
+        ],
+      };
+    }
+
     case 'PUSH_SUCCESS': {
       const { message, link, source } = input;
 
@@ -389,6 +401,10 @@ const flowReducer = (state = {}, input) => {
         metaSource: metaModel.toYAML(),
         meta: initMeta,
       };
+    }
+
+    case 'COPY_WORKFLOW': {
+      return state;
     }
 
     default:

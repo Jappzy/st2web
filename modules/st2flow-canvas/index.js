@@ -233,6 +233,7 @@ export default class Canvas extends Component {
 
   state = {
     scale: 0,
+    copiedTask: null,
   }
 
   componentDidMount() {
@@ -714,17 +715,52 @@ export default class Canvas extends Component {
         style={{height: '100%'}}
         focused={true}
         attach={document.body}
-        handlers={{handleTaskDelete: e => {
-          // This will break if canvas elements (tasks/transitions) become focus targets with
-          //  tabindex or automatically focusing elements.  But in that case, the Task already
-          //  has a handler for delete waiting.
-          if(e.target === document.body) {
-            e.preventDefault();
-            if(selectedTask) {
+        keyMap={{
+          copy: 'command+c',
+          cut: 'command+x',
+          paste: 'command+v',
+          open: 'command+o',
+        }}
+        handlers={{
+          copy: () => {
+            if (selectedTask) {
+              this.setState({ copiedTask: selectedTask });
+            }
+          },
+          cut: () => {
+            if (selectedTask) {
+              this.setState({ copiedTask: selectedTask });
               this.handleTaskDelete(selectedTask);
             }
+          },
+          paste: () => {
+            const { copiedTask } = this.state;
+            if (copiedTask) {
+              const taskHeight = copiedTask.size.y;
+              const taskCoords = copiedTask.coords;
+
+              const newCoords = {
+                x: taskCoords.x,
+                y: taskCoords.y + taskHeight + 10
+              };
+
+              const lastIndex = tasks
+                .map(task => (task.name.match(/task(\d+)/) || [])[1])
+                .reduce((acc, item) => Math.max(acc, item || 0), 0);
+          
+              this.props.issueModelCommand('addTask', {
+                name: `task${lastIndex + 1}`,
+                action: copiedTask.action,
+                coords: Vector.max(newCoords, new Vector(0, 0)),
+              });
+            }
+          },
+          open: () => {
+            if (selectedTask) {
+              window.open(`${location.origin}/#/action/${selectedTask.action}`, '_blank');
+            }
           }
-        }}}
+        }}
       >
         <div
           className={cx(this.props.className, this.style.component)}
