@@ -260,7 +260,7 @@ export default class Workflows extends Component {
        if (meta.parameters) {
          Object.keys(meta.parameters).forEach(key => {
            if (meta.parameters[key] === '_name') {
-            delete newMeta.parameters[key][paramKey];
+            delete newMeta.parameters[key]._name;
            }
          });
        }

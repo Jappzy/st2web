@@ -74,9 +74,12 @@ export default class Link extends React.Component {
         : to;
 
     const href = `#${createPath(targetLocation)}`;
+
+    const anchorTagProps = { ...props };
+    delete anchorTagProps.replace;
     
     return (
-      <a {...props} onClick={this.handleClick} href={href} ref={innerRef} />
+      <a {...anchorTagProps} onClick={this.handleClick} href={href} ref={innerRef} />
     );
   }
 }
