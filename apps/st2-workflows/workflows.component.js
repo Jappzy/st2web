@@ -231,7 +231,7 @@ export default class Workflows extends Component {
  }
 
  save() {
-   const { pack, meta, actions, workflowSource, metaSource } = this.props;
+   const { pack, meta, actions, workflowSource, metaSource, sendSuccess, sendError } = this.props;
    const existingAction = actions.find(e => e.name === meta.name && e.pack === pack);
 
    if (!meta.name) {
@@ -275,41 +275,40 @@ export default class Workflows extends Component {
      return {};
    })();
 
-   store.dispatch({
+   const saveRes = store.dispatch({
      type: 'SAVE_WORKFLOW',
      promise,
    });
+
+   saveRes.then(({ status }) => status === 'success' ? sendSuccess('Workflow saved.') : sendError('Error saving workflow.'));
+
    return promise;
  }
 
   style = style
 
   keyMap = {
-    undo: [ 'command+z', 'ctrl+z', 'meta+z' ],
-    redo: [ 'ctrl+shift+z', 'meta+shift+z' ],
-    open: 'command+o',
-    save: 'command+s',
-    copy: 'command+c',
-    cut: 'command+x',
-    paste: 'command+v',
+    copy: [ 'ctrl+c', 'command+c', 'meta+c' ],
+    cut: [ 'ctrl+x', 'command+x', 'meta+x' ],
+    paste: [ 'ctrl+v', 'command+v', 'meta+v' ],
+    open: [ 'ctrl+o', 'command+o', 'meta+o' ],
+    undo: [ 'ctrl+z', 'command+z', 'meta+z' ],
+    redo: [ 'ctrl+shift+z', 'command+shift+z', 'meta+shift+z' ],
+    save: [ 'ctrl+s', 'command+s', 'meta+s' ],
     handleTaskDelete: [ 'del', 'backspace' ],
   }
 
   keyHandlers = {
     undo: () => {
       store.dispatch({ type: 'FLOW_UNDO' });
-      store.dispatch({ type: 'PUSH_SUCCESS', source: 'icon-save', message: 'SHORTCUT - undo' });
     },
     redo: () => {
       store.dispatch({ type: 'FLOW_REDO' });
-      store.dispatch({ type: 'PUSH_SUCCESS', source: 'icon-save', message: 'SHORTCUT - redo' });
     },
     save: (x) => {
       x.preventDefault();
       x.stopPropagation();
-      this.save().then(() => {
-        store.dispatch({ type: 'PUSH_SUCCESS', source: 'icon-save', message: 'SHORTCUT - workflow saved' });
-      });
+      this.save().then(() => null);
     },
     copy: () => {
       store.dispatch({ type: 'PUSH_WARNING', source: 'icon-save', message: 'Select a task to copy' });
@@ -320,6 +319,16 @@ export default class Workflows extends Component {
     paste: () => {
       store.dispatch({ type: 'PUSH_WARNING', source: 'icon-save', message: 'Nothing to paste' });
     }
+  }
+
+  timer;
+
+  autosave(func) {
+    func.apply(this);
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.save();
+    }, 2000);
   }
 
   render() {
@@ -349,24 +358,32 @@ export default class Workflows extends Component {
                     keyMap={this.keyMap}
                     handlers={this.keyHandlers}
                   >
-                    <Canvas className="canvas" location={location} match={match} fetchActionscalled={e => this.props.fetchActions()} saveData={e => this.save()} dirtyflag={this.props.dirty}>
+                    <Canvas 
+                      className="canvas"
+                      location={location}
+                      match={match}
+                      dirtyflag={this.props.dirty}
+                      fetchActionscalled={e => this.props.fetchActions()}
+                      saveData={e => this.autosave(() => null)}
+                      undo={() => this.autosave(() => undo())}
+                      redo={() => this.autosave(() => redo())}
+                      >
                       <Toolbar>
-                        <ToolbarButton key="undo" icon="icon-redirect" title="Undo" errorMessage="Could not undo." onClick={() => undo()} />
-                        <ToolbarButton key="redo" icon="icon-redirect2" title="Redo" errorMessage="Could not redo." onClick={() => redo()} />
+                        <ToolbarButton key="undo" icon="icon-redirect" title="Undo" errorMessage="Could not undo." onClick={() => this.autosave(() => undo())} />
+                        <ToolbarButton key="redo" icon="icon-redirect2" title="Redo" errorMessage="Could not redo." onClick={() => this.autosave(() => redo())} />
                         <ToolbarButton
                           key="rearrange"
                           icon="icon-arrange"
                           title="Rearrange tasks"
                           successMessage="Rearrange complete."
                           errorMessage="Error rearranging workflows."
-                          onClick={() => layout()}
+                          onClick={() => this.autosave(() => layout())}
                         />
                         <ToolbarButton
                           key="save"
                           className={cx(dirty && 'glow')}
                           icon="icon-save"
                           title="Save workflow"
-                          successMessage="Workflow saved."
                           errorMessage="Error saving workflow."
                           onClick={() => this.save()}
                         />
@@ -400,7 +417,7 @@ export default class Workflows extends Component {
                       </Toolbar>
                     </Canvas>
                   </HotKeys>
-                  { !isCollapsed.details && <Details className="details" actions={actions} /> }
+                  { !isCollapsed.details && <Details className="details" actions={actions} onChange={() => this.autosave(() => null)} /> }
                 </div>
               </div>
           

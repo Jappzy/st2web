@@ -229,6 +229,8 @@ export default class Canvas extends Component {
     dirtyflag: PropTypes.bool,
     fetchActionscalled: PropTypes.func,
     saveData: PropTypes.func,
+    undo: PropTypes.func,
+    redo: PropTypes.func,
   }
 
   state = {
@@ -384,7 +386,7 @@ export default class Canvas extends Component {
       // finally, place the unplaced tasks.  using handleTaskMove will also ensure
       //   that the placement gets set on the model and the YAML.
       needsCoords.forEach(({task, transitionsTo}) => {
-        this.handleTaskMove(task, sampler.getNext(task.name, transitionsTo),true);
+        this.handleTaskMove(task, sampler.getNext(task.name, transitionsTo), true);
       });
     }
   }
@@ -570,19 +572,21 @@ export default class Canvas extends Component {
       coords: Vector.max(coords, new Vector(0, 0)),
     });
 
+    this.props.saveData();
+
     return false;
   }
 
-  handleTaskMove = async (task: TaskRefInterface, points: CanvasPoint,autoSave) => {
+  handleTaskMove = async (task: TaskRefInterface, points: CanvasPoint, autoSave) => {
     const x = points.x;
     const y = points.y;
     const coords = {x, y};
     this.props.issueModelCommand('updateTask', task, { coords });
     
-    if(autoSave && !this.props.dirtyflag) {
-      await this.props.fetchActionscalled();
+    if (autoSave && this.props.dirtyflag) {
       this.props.saveData();
-    }  
+      await this.props.fetchActionscalled();
+    }
    
   }
 
@@ -604,16 +608,25 @@ export default class Canvas extends Component {
     this.props.navigate({ toTasks: undefined, task: task.name });
   }
 
-  handleTaskDelete = (task: TaskRefInterface) => {
+  handleTaskDelete = (task: TaskRefInterface, autosave = true) => {
     this.props.issueModelCommand('deleteTask', task);
+    if (autosave) {
+      this.props.saveData();
+    }
   }
 
-  handleTaskConnect = (to: TaskRefInterface, from: TaskRefInterface) => {
+  handleTaskConnect = (to: TaskRefInterface, from: TaskRefInterface, autosave = true) => {
     this.props.issueModelCommand('addTransition', { from, to: [ to ] });
+    if (autosave) {
+      this.props.saveData();
+    }
   }
 
-  handleTransitionDelete = (transition: TransitionInterface) => {
+  handleTransitionDelete = (transition: TransitionInterface, autosave = true) => {
     this.props.issueModelCommand('deleteTransition', transition);
+    if (autosave) {
+      this.props.saveData();
+    }
   }
 
   get notifications() : Array<NotificationInterface> {
@@ -716,10 +729,12 @@ export default class Canvas extends Component {
         focused={true}
         attach={document.body}
         keyMap={{
-          copy: 'command+c',
-          cut: 'command+x',
-          paste: 'command+v',
-          open: 'command+o',
+          copy: [ 'ctrl+c', 'command+c', 'meta+c' ],
+          cut: [ 'ctrl+x', 'command+x', 'meta+x' ],
+          paste: [ 'ctrl+v', 'command+v', 'meta+v' ],
+          open: [ 'ctrl+o', 'command+o', 'meta+o' ],
+          undo: [ 'ctrl+z', 'command+z', 'meta+z' ],
+          redo: [ 'ctrl+shift+z', 'command+shift+z', 'meta+shift+z' ],
         }}
         handlers={{
           copy: () => {
@@ -759,7 +774,13 @@ export default class Canvas extends Component {
             if (selectedTask) {
               window.open(`${location.origin}/#/action/${selectedTask.action}`, '_blank');
             }
-          }
+          },
+          undo: () => {
+            this.props.undo();
+          },
+          redo: () => {
+            this.props.redo();
+          },
         }}
       >
         <div
@@ -785,7 +806,7 @@ export default class Canvas extends Component {
                       task={task}
                       selected={task.name === navigation.task && !selectedTransitionGroups.length}
                       scale={scale}
-                      onMove={(...a) => this.handleTaskMove(task, ...a,false)}
+                      onMove={(...a) => this.handleTaskMove(task, ...a, true)}
                       onConnect={(...a) => this.handleTaskConnect(task, ...a)}
                       onClick={() => this.handleTaskSelect(task)}
                       onDelete={() => this.handleTaskDelete(task)}
